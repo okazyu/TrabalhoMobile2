@@ -1,34 +1,83 @@
-import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Login from './components/Pages/Login';
+import Filmes from './components/Movies';
+import Confirm from './components/Pages/Confirm';
 
 export default function App() {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [filmes, setFilmes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [selectedFilme, setSelectedFilme] = useState(null);
 
-  let [filmes, setFilmes] = useState([]);
-
-  const baseURL = 'https://api.otaviolube.com/api/filmes?populate=*';
-
-  useEffect(function () {
-    fetch(baseURL)
-      .then(data => data.json())
-      .then(objeto => {
-        console.log(objeto);
-        console.log(objeto.data);
-        setFilmes(objeto.data);
-      })
+  useEffect(() => {
+    async function fetchFilmes() {
+      try {
+        const response = await Promise.race([
+          fetch('https://api.otaviolube.com/api/filmes?populate=*'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]);
+        const data = await response.json();
+        const filmesData = data.data.map(filme => ({
+          ...filme,
+          poster: filme.attributes.poster,
+        }));
+        setFilmes(filmesData);
+      } catch (e) {
+        console.error(e);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFilmes();
   }, []);
+
+  const handleLogin = () => {
+    setAuthenticated(true);
+  };
+
+  const handleFilmeSelect = (filme) => {
+    setSelectedFilme(filme);
+  };
+
+  const handleConfirm = () => {
+    console.log('Compra confirmada!');
+  };
+
+  if (!authenticated) {
+    return <Login handleLogin={handleLogin} />;
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.loading}>Carregando...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.error}>Erro ao carregar filmes</Text>
+      </View>
+    );
+  }
+
+  if (selectedFilme) {
+    return (
+      <View style={styles.container}>
+        <Confirm filme={selectedFilme} handleConfirm={handleConfirm} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      { filmes.length > 0 ? filmes.map(filme =>
-        <Text>
-          {'\n\n'}TITULO: {filme.attributes.titulo}
-          <Text>
-            {'\n\n'}SINOPSE: {filme.attributes.sinopse}
-          </Text>
-        </Text>) : <Text>Carregando...</Text>}
-      <StatusBar style="auto" />
+      <Text style={styles.title}>Selecione o filme em cartaz que deseja assistir:</Text>
+      <Filmes filmes={filmes} handleFilmeSelect={handleFilmeSelect} />
     </View>
   );
 }
@@ -36,8 +85,30 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'flex-start',
-    justifyContent:'center'
+    backgroundColor: '#f1c40f',
+    paddingTop: 40,
+    paddingHorizontal: 20,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loading: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  error: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f00',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 20,
   },
 });
